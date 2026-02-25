@@ -21,8 +21,10 @@ echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] status=$STATUS input=$INPUT" >> "$LOG_F
 SESSION_ID="$(echo "$INPUT" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)"
 CWD="$(echo "$INPUT" | grep -o '"cwd":"[^"]*"' | head -1 | cut -d'"' -f4)"
 
-# Derive project name from cwd
-PROJECT_NAME="$(basename "$CWD")"
+# Derive project name from git root (stable even when tools run in subdirectories).
+# Falls back to basename of cwd for non-git projects.
+PROJECT_ROOT="$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null)" || PROJECT_ROOT=""
+PROJECT_NAME="$(basename "${PROJECT_ROOT:-$CWD}")"
 
 # Walk up the process tree to find the actual Claude Code process.
 # Check both short name (comm) and full command line for portability —
