@@ -33,6 +33,7 @@ type WsMessage =
 const VERSION = "1.0.0";
 const STALE_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours (fallback for agents without PID)
 const CLEANUP_INTERVAL_MS = 60 * 1000; // 60 seconds
+const WAITING_DEBOUNCE_MS = 3_000; // debounce waiting_for_user to absorb autonomous mode switches
 const LOCK_DIR = join(homedir(), ".agent-observer");
 const LOCK_FILE = join(LOCK_DIR, "server.lock");
 const VALID_STATUSES = new Set(["running", "waiting_for_user", "idle", "error"]);
@@ -40,6 +41,7 @@ const VALID_STATUSES = new Set(["running", "waiting_for_user", "idle", "error"])
 // --- State ---
 
 const store = new Map<string, AgentStatus>();
+const pendingWaiting = new Map<string, ReturnType<typeof setTimeout>>();
 const startTime = Date.now();
 
 // --- Express App ---
@@ -86,7 +88,33 @@ app.post("/api/status", (req, res) => {
   };
 
   store.set(agentId, entry);
-  broadcast({ type: "status_update", data: entry });
+
+  if (status === "waiting_for_user") {
+    // Debounce: delay broadcast so autonomous mode switches (e.g. plan mode)
+    // that immediately follow with "running" don't flash as waiting
+    const existing = pendingWaiting.get(agentId);
+    if (existing) clearTimeout(existing);
+    pendingWaiting.set(
+      agentId,
+      setTimeout(() => {
+        pendingWaiting.delete(agentId);
+        // Only broadcast if still waiting (no newer status overrode it)
+        const current = store.get(agentId);
+        if (current && current.status === "waiting_for_user") {
+          broadcast({ type: "status_update", data: current });
+        }
+      }, WAITING_DEBOUNCE_MS),
+    );
+  } else {
+    // Cancel any pending waiting_for_user broadcast and send immediately
+    const pending = pendingWaiting.get(agentId);
+    if (pending) {
+      clearTimeout(pending);
+      pendingWaiting.delete(agentId);
+    }
+    broadcast({ type: "status_update", data: entry });
+  }
+
   res.json({ ok: true });
 });
 
@@ -101,6 +129,11 @@ app.delete("/api/status/:agentId", (req, res) => {
     return;
   }
   store.delete(agentId);
+  const pending = pendingWaiting.get(agentId);
+  if (pending) {
+    clearTimeout(pending);
+    pendingWaiting.delete(agentId);
+  }
   broadcast({ type: "agent_removed", data: { agentId } });
   res.json({ ok: true });
 });
@@ -154,6 +187,11 @@ const cleanupInterval = setInterval(() => {
 
     if (stale) {
       store.delete(agentId);
+      const pending = pendingWaiting.get(agentId);
+      if (pending) {
+        clearTimeout(pending);
+        pendingWaiting.delete(agentId);
+      }
       broadcast({ type: "agent_removed", data: { agentId } });
     }
   }
@@ -181,6 +219,8 @@ function removeLockFile(): void {
 
 function shutdown(): void {
   clearInterval(cleanupInterval);
+  for (const timer of pendingWaiting.values()) clearTimeout(timer);
+  pendingWaiting.clear();
   removeLockFile();
   wss.close();
   server.close();
