@@ -24,8 +24,24 @@ CWD="$(echo "$INPUT" | grep -o '"cwd":"[^"]*"' | head -1 | cut -d'"' -f4)"
 # Derive project name from cwd
 PROJECT_NAME="$(basename "$CWD")"
 
-# Get Claude Code PID (grandparent: Claude Code -> shell -> this script)
-AGENT_PID="$(ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' ')" || AGENT_PID=""
+# Walk up the process tree to find the actual Claude Code process.
+# Check both short name (comm) and full command line for portability —
+# claude may appear as native binary "claude" or as "node /path/to/claude".
+AGENT_PID=""
+_pid=$$
+while [ "$_pid" -gt 1 ] 2>/dev/null; do
+  _pid="$(ps -o ppid= -p "$_pid" 2>/dev/null | tr -d ' ')" || break
+  [ -z "$_pid" ] && break
+  _comm="$(ps -o comm= -p "$_pid" 2>/dev/null)" || break
+  case "$_comm" in
+    *claude*) AGENT_PID="$_pid"; break ;;
+  esac
+  # Fallback: check full command line (covers "node /path/to/claude")
+  _args="$(ps -o args= -p "$_pid" 2>/dev/null)" || continue
+  case "$_args" in
+    *claude*) AGENT_PID="$_pid"; break ;;
+  esac
+done
 
 # Bail if no session_id
 if [ -z "$SESSION_ID" ]; then
