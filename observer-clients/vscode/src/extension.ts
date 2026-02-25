@@ -93,7 +93,6 @@ function connectWebSocket(port: number): void {
   });
 
   wsClient.on("status_update", (agent: AgentStatus) => {
-    notifyIfNeeded(agent);
     previousAgents.set(agent.agentId, agent);
     statusBar?.updateAgent(agent);
     treeProvider?.updateAgent(agent);
@@ -108,39 +107,6 @@ function connectWebSocket(port: number): void {
   });
 
   wsClient.connect();
-}
-
-function notifyIfNeeded(agent: AgentStatus): void {
-  const prev = previousAgents.get(agent.agentId);
-
-  // Only notify on status transitions, not on new agents
-  if (!prev || prev.status === agent.status) {
-    return;
-  }
-
-  const displayName = agent.client || agent.agentId.substring(0, 8);
-
-  if (agent.status === "waiting_for_user") {
-    const msg = vscode.window.showWarningMessage(
-      `${displayName} (${agent.projectName}) is waiting for input`,
-      "Focus Window"
-    );
-    msg.then((action) => {
-      if (action === "Focus Window" && agent.cwd) {
-        vscode.commands.executeCommand("agentObserver.focusWindow", agent.cwd);
-      }
-    });
-  } else if (agent.status === "error") {
-    const msg = vscode.window.showErrorMessage(
-      `${displayName} (${agent.projectName}) has an error`,
-      "Focus Window"
-    );
-    msg.then((action) => {
-      if (action === "Focus Window" && agent.cwd) {
-        vscode.commands.executeCommand("agentObserver.focusWindow", agent.cwd);
-      }
-    });
-  }
 }
 
 function updateBadge(): void {
