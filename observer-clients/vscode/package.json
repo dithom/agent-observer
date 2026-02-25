@@ -1,0 +1,44 @@
+{
+  "name": "agent-observer-vscode",
+  "displayName": "Agent Observer",
+  "description": "Real-time monitoring of AI agents across projects",
+  "version": "1.0.0",
+  "publisher": "agent-observer",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["*"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agent-observer",
+          "title": "Agent Observer",
+          "icon": "$(eye)"
+        }
+      ]
+    },
+    "views": {
+      "agent-observer": [
+        {
+          "id": "agentObserver.agents",
+          "name": "Agents"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}

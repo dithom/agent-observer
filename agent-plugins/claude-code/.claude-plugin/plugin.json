@@ -1,0 +1,5 @@
+{
+  "name": "agent-observer",
+  "description": "Reports Claude Code agent status to the Agent Observer server for real-time monitoring.",
+  "version": "1.0.0"
+}
