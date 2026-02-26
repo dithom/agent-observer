@@ -19,6 +19,35 @@ let treeProvider: AgentTreeDataProvider | undefined;
 let treeView: vscode.TreeView<any> | undefined;
 let previousAgents: Map<string, AgentStatus> = new Map();
 
+/**
+ * Match an agent's cwd to the closest VS Code workspace folder.
+ * Overrides projectName with the workspace folder name and cwd with
+ * the workspace folder path so that "focus window" opens the right root.
+ */
+function resolveWorkspace(agent: AgentStatus): AgentStatus {
+  if (!agent.cwd) {
+    return agent;
+  }
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    return agent;
+  }
+  // Find the workspace folder that contains the agent's cwd (longest prefix wins)
+  let best: vscode.WorkspaceFolder | undefined;
+  for (const folder of folders) {
+    const folderPath = folder.uri.fsPath;
+    if (agent.cwd === folderPath || agent.cwd.startsWith(folderPath + "/")) {
+      if (!best || folderPath.length > best.uri.fsPath.length) {
+        best = folder;
+      }
+    }
+  }
+  if (best) {
+    return { ...agent, projectName: best.name, cwd: best.uri.fsPath };
+  }
+  return agent;
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   statusBar = new StatusBar();
   treeProvider = new AgentTreeDataProvider();
@@ -91,18 +120,20 @@ function connectWebSocket(port: number): void {
 
   wsClient.on("snapshot", (agents: AgentStatus[]) => {
     previousAgents.clear();
-    for (const a of agents) {
+    const resolved = agents.map(resolveWorkspace);
+    for (const a of resolved) {
       previousAgents.set(a.agentId, a);
     }
-    statusBar?.setAgents(agents);
-    treeProvider?.setAgents(agents);
+    statusBar?.setAgents(resolved);
+    treeProvider?.setAgents(resolved);
     updateBadge();
   });
 
   wsClient.on("status_update", (agent: AgentStatus) => {
-    previousAgents.set(agent.agentId, agent);
-    statusBar?.updateAgent(agent);
-    treeProvider?.updateAgent(agent);
+    const resolved = resolveWorkspace(agent);
+    previousAgents.set(resolved.agentId, resolved);
+    statusBar?.updateAgent(resolved);
+    treeProvider?.updateAgent(resolved);
     updateBadge();
   });
 
