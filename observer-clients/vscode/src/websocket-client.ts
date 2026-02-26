@@ -20,15 +20,29 @@ export class WebSocketClient extends EventEmitter {
   private reconnectDelay = 1000;
   private maxReconnectDelay = 30000;
   private disposed = false;
+  private portResolver: (() => number | null) | null = null;
 
   constructor(port: number) {
     super();
     this.port = port;
   }
 
+  /** Register a callback that returns the current port from the lock file. */
+  setPortResolver(resolver: () => number | null): void {
+    this.portResolver = resolver;
+  }
+
   connect(): void {
     if (this.disposed) {
       return;
+    }
+
+    // Before connecting, check if the port has changed (e.g. server restarted)
+    if (this.portResolver) {
+      const freshPort = this.portResolver();
+      if (freshPort && freshPort !== this.port) {
+        this.port = freshPort;
+      }
     }
 
     try {

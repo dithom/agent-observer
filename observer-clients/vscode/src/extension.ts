@@ -74,6 +74,13 @@ async function ensureServer(): Promise<number | null> {
 function connectWebSocket(port: number): void {
   wsClient = new WebSocketClient(port);
 
+  // Let the WS client read the current port from the lock file on each
+  // reconnect attempt so it picks up server restarts automatically.
+  wsClient.setPortResolver(() => {
+    const lock = readLockFile();
+    return lock && isServerRunning(lock) ? lock.port : null;
+  });
+
   wsClient.on("connected", () => {
     statusBar?.setConnected(true);
   });

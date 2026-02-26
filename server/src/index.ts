@@ -32,7 +32,7 @@ type WsMessage =
 
 const VERSION = "1.0.0";
 const STALE_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours (fallback for agents without PID)
-const CLEANUP_INTERVAL_MS = 60 * 1000; // 60 seconds
+const CLEANUP_INTERVAL_MS = 30 * 1000; // 30 seconds
 const WAITING_DEBOUNCE_MS = 3_000; // debounce waiting_for_user to absorb autonomous mode switches
 const LOCK_DIR = join(homedir(), ".agent-observer");
 const LOCK_FILE = join(LOCK_DIR, "server.lock");
@@ -86,6 +86,25 @@ app.post("/api/status", (req, res) => {
     ...(pid && typeof pid === "number" ? { pid } : {}),
     timestamp: Date.now(),
   };
+
+  // Evict other sessions sharing the same PID.
+  // Within a single Claude Code process, subagents share the parent's session_id
+  // so they never create separate store entries. The only case where the same PID
+  // maps to different agentIds is a session switch (/resume, /clear) — the old
+  // session never receives SessionEnd, so we evict it here.
+  if (entry.pid) {
+    for (const [otherId, other] of store) {
+      if (otherId !== agentId && other.pid === entry.pid) {
+        store.delete(otherId);
+        const p = pendingWaiting.get(otherId);
+        if (p) {
+          clearTimeout(p);
+          pendingWaiting.delete(otherId);
+        }
+        broadcast({ type: "agent_removed", data: { agentId: otherId } });
+      }
+    }
+  }
 
   store.set(agentId, entry);
 
