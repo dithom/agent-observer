@@ -38,6 +38,16 @@
           "name": "Agents"
         }
       ]
+    },
+    "configuration": {
+      "title": "Agent Observer",
+      "properties": {
+        "agentObserver.debugLogging": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable debug logging for agent plugin hooks. When enabled, hook invocations are logged to `~/.agent-observer/hook-debug.log`."
+        }
+      }
     }
   },
   "scripts": {

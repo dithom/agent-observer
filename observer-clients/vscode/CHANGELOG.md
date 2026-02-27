@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2026-02-27
+## 0.1.0 — 2026-02-27
 
 - Initial release
 - Real-time monitoring of AI agents across VS Code windows

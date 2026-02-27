@@ -8,14 +8,16 @@ set -euo pipefail
 
 STATUS="${1:-}"
 LOCK_FILE="$HOME/.agent-observer/server.lock"
+DEBUG_FLAG="$HOME/.agent-observer/debug"
 LOG_FILE="$HOME/.agent-observer/hook-debug.log"
 
 # Read JSON from stdin
 INPUT="$(cat)"
 
-# Debug logging (remove once hooks are verified)
-mkdir -p "$(dirname "$LOG_FILE")"
-echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] status=$STATUS input=$INPUT" >> "$LOG_FILE" 2>/dev/null || true
+# Debug logging (opt-in via VS Code setting "agentObserver.debugLogging")
+if [ -f "$DEBUG_FLAG" ]; then
+  echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] status=$STATUS input=$INPUT" >> "$LOG_FILE" 2>/dev/null || true
+fi
 
 # Extract session_id and cwd from stdin JSON
 SESSION_ID="$(echo "$INPUT" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)"

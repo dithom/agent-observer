@@ -1,6 +1,8 @@
 {
   "name": "@agent-observer/server",
   "version": "0.1.0",
+  "description": "In-memory HTTP + WebSocket server for real-time AI agent status monitoring",
+  "license": "MIT",
   "private": true,
   "main": "dist/server.js",
   "scripts": {
