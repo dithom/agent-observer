@@ -1,57 +1,80 @@
 # Agent Observer
 
-## Sprache
+## Language
 
-- Kommunikation mit dem Entwickler: **Deutsch**
-- Code, Commits, API-Responses, UI-Texte, Logs: **Englisch**
+- Communication with the developer: **German**
+- Code, commits, API responses, UI text, logs: **English**
 
-## Projektstruktur
+## Project Structure
 
-Monorepo mit npm workspaces:
+Monorepo with npm workspaces:
 
 ```
 server/                          # Node.js HTTP + WebSocket Server (Express, ws)
-observer-clients/vscode/         # VS Code Extension (TreeView, StatusBar, WebSocket-Client)
-agent-plugins/claude-code/       # Claude Code Plugin (Shell-Hook → POST /api/status)
+observer-clients/vscode/         # VS Code Extension (TreeView, StatusBar, WebSocket Client)
+agent-plugins/claude-code/       # Claude Code Plugin (Shell Hook → POST /api/status)
 ```
 
 ## Build
 
 ```bash
-npm install                      # Installiert alle Workspaces
-npm run build -w server          # Baut den Server (esbuild → server/dist/)
-npm run build -w observer-clients/vscode  # Baut die VS Code Extension (esbuild → observer-clients/vscode/dist/)
+npm install                      # Install all workspaces
+npm run build -w server          # Build server (esbuild → server/dist/)
+npm run build -w observer-clients/vscode  # Build VS Code Extension (esbuild → observer-clients/vscode/dist/)
 ```
 
-TypeScript-Konfiguration: Gemeinsame `tsconfig.json` im Root, Workspaces erweitern per `extends`.
+TypeScript config: shared `tsconfig.json` in root, workspaces extend via `extends`.
 
-## Architektur
+## Architecture
 
 ```
-Agent-Plugins  →  POST /api/status  →  Server (Port dynamisch, Lock-File ~/.agent-observer/server.lock)
+Agent Plugins  →  POST /api/status  →  Server (dynamic port, lock file ~/.agent-observer/server.lock)
                                           ↓ WebSocket /ws
-                                    Observer-Clients (Snapshot bei Connect, dann Updates)
+                                    Observer Clients (snapshot on connect, then updates)
 ```
 
-- **Server**: In-Memory Store (`Map<agentId, AgentStatus>`), Stale-Cleanup per PID-Check oder Timeout
-- **Agent-Plugins**: Fire-and-forget HTTP POSTs, dürfen niemals den Agenten blockieren (async hooks, `exit 0`)
-- **Observer-Clients**: Verbinden sich per WebSocket, empfangen Snapshot + laufende Updates
+- **Server**: In-memory store (`Map<agentId, AgentStatus>`), stale cleanup via PID check or timeout
+- **Agent Plugins**: Fire-and-forget HTTP POSTs, must never block the agent (async hooks, `exit 0`)
+- **Observer Clients**: Connect via WebSocket, receive snapshot + live updates
 
-## Versionierung
+## Versioning
 
-Jede Komponente wird unabhängig versioniert (SemVer):
+Each component is versioned independently (SemVer):
 
-- **Server** (`server/package.json` + `VERSION` in `src/app.ts`) — eigener Kern, wird auch in die VS Code Extension gebundelt
-- **Observer-Clients** (z.B. `observer-clients/vscode/package.json`) — je nach Plattform eigenes Release
-- **Agent-Plugins** (z.B. `agent-plugins/claude-code/.claude-plugin/plugin.json`) — eigenes Release
+- **Server** (`server/package.json` + `VERSION` in `src/app.ts`) — core component, also bundled into the VS Code Extension
+- **Observer Clients** (e.g. `observer-clients/vscode/package.json`) — separate release per platform
+- **Agent Plugins** (e.g. `agent-plugins/claude-code/.claude-plugin/plugin.json`) — separate release
 
-Versionen bumpen: `package.json` des jeweiligen Workspace. Beim Server zusätzlich `VERSION` in `src/app.ts`.
+Version bump: `package.json` of the respective workspace. For the server, also update `VERSION` in `src/app.ts`.
 
-Git-Tags pro Komponente: `vscode/v0.1.1`, `server/v0.1.0`, `plugin-claude-code/v0.1.0`.
+Git tags per component: `vscode/v0.1.1`, `server/v0.1.0`, `plugin-claude-code/v0.1.0`.
 
-## Konventionen
+## Git Flow & Release
 
-- Builds laufen über esbuild (nicht tsc) — siehe `build.js` in jedem Workspace
-- Server lauscht auf Port 0 (OS-assigned), schreibt Port in Lock-File
-- Hook-Scripts müssen immer mit Exit-Code 0 enden
-- Keine externen Datenbanken — alles in-memory
+Branching: `develop` (working branch) → `main` (release).
+
+### Release Steps (per component)
+
+1. On `develop`: bump version, update CHANGELOG, commit, push
+2. `git checkout main && git merge develop --no-ff -m "release(<component>): v<version>"`
+3. `git tag -a <prefix>/v<version> -m "<prefix>/v<version>"`
+4. `git push origin main --tags`
+5. `git checkout develop`
+
+### VS Code Extension (additional)
+
+- Build `.vsix`: `npm run build -w server && npm run build -w observer-clients/vscode && cd observer-clients/vscode && npx @vscode/vsce package`
+- Upload to VS Code Marketplace manually
+- CHANGELOG: `observer-clients/vscode/CHANGELOG.md`
+
+### Claude Code Plugin
+
+- Distributed via GitHub repo (`claude plugin add dithom/agent-observer`)
+- Release = merge to `main` (no separate build needed)
+
+## Conventions
+
+- Builds use esbuild (not tsc) — see `build.js` in each workspace
+- Server listens on port 0 (OS-assigned), writes port to lock file
+- Hook scripts must always exit with code 0
+- No external databases — everything in-memory

@@ -4,4 +4,6 @@ build.js
 *.map
 tsconfig.json
 .vscode/
+.DS_Store
+../.DS_Store
 ../../**

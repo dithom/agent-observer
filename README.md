@@ -29,10 +29,11 @@ Requires VS Code `code` CLI for click-to-focus. Install via: `Cmd+Shift+P` → "
 ### 2. Claude Code Plugin
 
 ```bash
-claude plugin add dithom/agent-observer
+claude plugin marketplace add dithom/agent-observer
+claude plugin install agent-observer@agent-observer
 ```
 
-That's it. The plugin reports agent status via Claude Code's hook system.
+The plugin reports agent status via Claude Code's hook system.
 
 ## How It Works
 

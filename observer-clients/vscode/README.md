@@ -2,6 +2,12 @@
 
 Real-time monitoring of AI agents across projects and VS Code windows.
 
+> **Important:** This extension only displays agent status — each AI agent needs a dedicated plugin to report its status. See [supported plugins and installation instructions](https://github.com/dithom/agent-observer#supported-agent-plugins).
+
+## Requirements
+
+- VS Code `code` CLI — required for "click to focus" feature. Install via: `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH"
+
 ## Features
 
 - **Sidebar TreeView** — See all running agents grouped by project, with live status and relative timestamps
@@ -35,7 +41,3 @@ Real-time monitoring of AI agents across projects and VS Code windows.
 1. Install this extension from the VS Code Marketplace
 2. Install an agent plugin (e.g. [Claude Code Plugin](https://github.com/dithom/agent-observer))
 3. The extension activates automatically and starts monitoring
-
-## Requirements
-
-- VS Code `code` CLI — required for "click to focus" feature. Install via: `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH"
