@@ -11,15 +11,15 @@ Real-time monitoring of AI agents across projects and VS Code windows.
 
 ### Sidebar
 
-![Sidebar TreeView with agents grouped by project](docs/sidebar.jpg)
+![Sidebar TreeView with agents grouped by project](https://raw.githubusercontent.com/dithom/agent-observer/main/observer-clients/vscode/docs/sidebar.jpg)
 
 ### Status Bar
 
-![Status Bar — all agents running](docs/status-bar__working-expanded.jpg)
+![Status Bar — all agents running](https://raw.githubusercontent.com/dithom/agent-observer/main/observer-clients/vscode/docs/status-bar__working-expanded.jpg)
 
-![Status Bar — agent waiting for user](docs/status-bar__waiting-expanded.jpg)
+![Status Bar — agent waiting for user](https://raw.githubusercontent.com/dithom/agent-observer/main/observer-clients/vscode/docs/status-bar__waiting-expanded.jpg)
 
-![Status Bar — collapsed](docs/status-bar__working-collapsed.jpg)
+![Status Bar — collapsed](https://raw.githubusercontent.com/dithom/agent-observer/main/observer-clients/vscode/docs/status-bar__working-collapsed.jpg)
 
 ## Status Icons
 
