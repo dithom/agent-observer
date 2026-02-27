@@ -49,6 +49,29 @@ Versionen bumpen: `package.json` des jeweiligen Workspace. Beim Server zusätzli
 
 Git-Tags pro Komponente: `vscode/v0.1.1`, `server/v0.1.0`, `plugin-claude-code/v0.1.0`.
 
+## Git Flow & Release
+
+Branching: `develop` (Arbeitsbranch) → `main` (Release).
+
+### Release-Schritte (pro Komponente)
+
+1. Auf `develop`: Version bumpen, CHANGELOG aktualisieren, committen, pushen
+2. `git checkout main && git merge develop --no-ff -m "release(<komponente>): v<version>"`
+3. `git tag -a <prefix>/v<version> -m "<prefix>/v<version>"`
+4. `git push origin main --tags`
+5. `git checkout develop`
+
+### VS Code Extension zusätzlich
+
+- `.vsix` bauen: `npm run build -w server && npm run build -w observer-clients/vscode && cd observer-clients/vscode && npx @vscode/vsce package`
+- Upload auf VS Code Marketplace manuell
+- CHANGELOG: `observer-clients/vscode/CHANGELOG.md`
+
+### Claude Code Plugin
+
+- Wird über GitHub Repo verteilt (`claude plugin add dithom/agent-observer`)
+- Release = Merge nach `main` (kein separater Build nötig)
+
 ## Konventionen
 
 - Builds laufen über esbuild (nicht tsc) — siehe `build.js` in jedem Workspace
