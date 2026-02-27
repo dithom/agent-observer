@@ -2,6 +2,20 @@
 
 Real-time monitoring of AI agents across projects and VS Code windows. See at a glance which agents are running, waiting for input, or have errors.
 
+## Supported Observer Clients
+
+| Client | Status |
+|---|---|
+| [VS Code Extension](observer-clients/vscode/) | Available |
+
+## Supported Agent Plugins
+
+| Plugin | Status |
+|---|---|
+| [Claude Code](agent-plugins/claude-code/) | Available |
+
+Missing your tool? Feel free to [create a PR](https://github.com/dithom/agent-observer/pulls) to add support for your agent or IDE.
+
 ## Installation
 
 ### 1. VS Code Extension
@@ -9,6 +23,8 @@ Real-time monitoring of AI agents across projects and VS Code windows. See at a 
 Install **Agent Observer** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=dithom.agent-observer-vscode).
 
 The extension manages the observer server automatically — no separate setup needed.
+
+Requires VS Code `code` CLI for click-to-focus. Install via: `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH".
 
 ### 2. Claude Code Plugin
 
@@ -48,10 +64,6 @@ Claude Code Plugin  →  POST /api/status  →  Server  →  WebSocket  →  VS 
 ![Status Bar — agent waiting for user (expanded)](observer-clients/vscode/docs/status-bar__waiting-expanded.jpg)
 
 ![Status Bar — collapsed](observer-clients/vscode/docs/status-bar__working-collapsed.jpg)
-
-## Requirements
-
-- VS Code `code` CLI — needed for click-to-focus. Install via: `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH"
 
 ## Development
 
