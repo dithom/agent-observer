@@ -5,6 +5,7 @@ interface AgentStatus {
   agentId: string;
   status: "running" | "waiting_for_user" | "idle" | "error";
   projectName: string;
+  label?: string;
   timestamp: number;
 }
 

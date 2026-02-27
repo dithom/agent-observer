@@ -7,6 +7,7 @@ interface AgentStatus {
   client?: string;
   cwd?: string;
   pid?: number;
+  label?: string;
   timestamp: number;
 }
 
@@ -156,7 +157,7 @@ export class StatusBar {
 
         for (const agent of projectAgents) {
           const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, PRIORITY - 1 - idx);
-          const displayName = agent.client || agent.agentId.substring(0, 8);
+          const displayName = agent.label || agent.client || agent.agentId.substring(0, 8);
           item.text = `${statusIcon(agent.status)} ${displayName}`;
           const style = statusStyle(agent.status);
           item.backgroundColor = style.backgroundColor;

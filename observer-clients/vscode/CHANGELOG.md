@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 — 2026-02-27
+
+- Replace TreeView with WebviewView cards (colored border = status, grouped by project, collapsible)
+- Add task labels: rename agents via edit icon on cards, persisted across status updates
+- New server endpoint `PATCH /api/status/:agentId/label` for label management
+- Status bar shows task label as display name
+- Badge on sidebar icon for agents needing attention (waiting/error)
+- Client-side timestamp refresh every 10 seconds
+
 ## 0.2.0 — 2026-02-27
 
 - Focus agent terminal or Claude Code panel on click (not just the window)
