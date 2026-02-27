@@ -1,12 +1,23 @@
 {
   "name": "agent-observer-vscode",
   "displayName": "Agent Observer",
-  "description": "Real-time monitoring of AI agents across projects",
+  "description": "Real-time monitoring of AI agents across projects and VS Code windows",
   "version": "1.0.0",
-  "publisher": "agent-observer",
+  "publisher": "dithom",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dithom/agent-observer"
+  },
+  "bugs": {
+    "url": "https://github.com/dithom/agent-observer/issues"
+  },
+  "homepage": "https://github.com/dithom/agent-observer#readme",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
+  "keywords": ["ai", "agent", "monitor", "claude", "status"],
   "categories": ["Other"],
   "activationEvents": ["*"],
   "main": "./dist/extension.js",
