@@ -11,7 +11,8 @@ interface AgentStatus {
 type WsMessage =
   | { type: "snapshot"; data: AgentStatus[] }
   | { type: "status_update"; data: AgentStatus }
-  | { type: "agent_removed"; data: { agentId: string } };
+  | { type: "agent_removed"; data: { agentId: string } }
+  | { type: "focus_request"; data: { agentId: string; pid?: number; cwd?: string } };
 
 export class WebSocketClient extends EventEmitter {
   private ws: WebSocket | null = null;
@@ -74,6 +75,12 @@ export class WebSocketClient extends EventEmitter {
     this.ws.on("error", () => {
       // Error will be followed by close event
     });
+  }
+
+  send(message: object): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    }
   }
 
   updatePort(port: number): void {

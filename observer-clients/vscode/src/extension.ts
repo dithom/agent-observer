@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { writeFileSync, unlinkSync, mkdirSync } from "fs";
+import { exec, execSync } from "child_process";
 import { join } from "path";
 import { homedir } from "os";
 import { startServer, waitForServer, stopServerIfLast, readLockFile, isServerRunning } from "./server-manager";
@@ -16,6 +17,7 @@ interface AgentStatus {
   projectName: string;
   client?: string;
   cwd?: string;
+  pid?: number;
   timestamp: number;
 }
 
@@ -68,6 +70,82 @@ function syncDebugFlag(): void {
   }
 }
 
+function isWorkspaceMatch(cwd: string): boolean {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || !cwd) {
+    return false;
+  }
+  for (const folder of folders) {
+    const folderPath = folder.uri.fsPath;
+    if (cwd === folderPath || cwd.startsWith(folderPath + "/")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function tryFocusTerminal(pid: number): Promise<boolean> {
+  try {
+    const raw = execSync("ps -eo pid=,ppid=", { encoding: "utf-8" });
+    const processMap = new Map<number, number>();
+    for (const line of raw.trim().split("\n")) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length === 2) {
+        processMap.set(Number(parts[0]), Number(parts[1]));
+      }
+    }
+
+    // Walk up from the agent PID to collect all ancestors
+    // Terminal PID (shell) is an ancestor of the agent PID (Claude Code)
+    const ancestors = new Set<number>([pid]);
+    let current = pid;
+    while (processMap.has(current)) {
+      const parent = processMap.get(current)!;
+      if (parent <= 1 || ancestors.has(parent)) break;
+      ancestors.add(parent);
+      current = parent;
+    }
+
+    for (const terminal of vscode.window.terminals) {
+      const termPid = await terminal.processId;
+      if (termPid && ancestors.has(termPid)) {
+        terminal.show();
+        return true;
+      }
+    }
+  } catch {
+    // ps command failed — skip terminal focus
+  }
+  return false;
+}
+
+async function tryFocusClaudePanel(): Promise<boolean> {
+  const allCommands = await vscode.commands.getCommands(true);
+  if (allCommands.includes("claude-vscode.focus")) {
+    await vscode.commands.executeCommand("claude-vscode.focus");
+    return true;
+  }
+  return false;
+}
+
+async function handleFocusRequest(data: { agentId: string; pid?: number; cwd?: string }): Promise<void> {
+  if (!data.cwd || !isWorkspaceMatch(data.cwd)) {
+    return;
+  }
+
+  // This agent belongs to our window — focus terminal or Claude panel
+  if (data.pid) {
+    // Agent has a PID → terminal-based (CLI mode)
+    await tryFocusTerminal(data.pid);
+  } else {
+    // No PID → likely GUI mode (claude-vscode)
+    await tryFocusClaudePanel();
+  }
+
+  // Bring the window to foreground
+  exec(`code "${data.cwd}"`);
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   syncDebugFlag();
 
@@ -78,6 +156,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
   );
+
+  const focusDisposable = vscode.commands.registerCommand(
+    "agentObserver.focusWindow",
+    (agentId: string, _pid?: number, cwd?: string) => {
+      if (wsClient) {
+        wsClient.send({ type: "focus_request", agentId });
+      } else if (cwd) {
+        // Fallback: no WebSocket, just open the window directly
+        exec(`code "${cwd}"`);
+      }
+    },
+  );
+  context.subscriptions.push(focusDisposable);
 
   statusBar = new StatusBar();
   treeProvider = new AgentTreeDataProvider();
@@ -165,6 +256,10 @@ function connectWebSocket(port: number): void {
     statusBar?.updateAgent(resolved);
     treeProvider?.updateAgent(resolved);
     updateBadge();
+  });
+
+  wsClient.on("focus_request", (data: { agentId: string; pid?: number; cwd?: string }) => {
+    handleFocusRequest(data);
   });
 
   wsClient.on("agent_removed", (data: { agentId: string }) => {

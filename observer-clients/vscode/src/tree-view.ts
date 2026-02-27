@@ -6,6 +6,7 @@ interface AgentStatus {
   projectName: string;
   client?: string;
   cwd?: string;
+  pid?: number;
   timestamp: number;
 }
 
@@ -33,7 +34,7 @@ class AgentNode extends vscode.TreeItem {
     this.iconPath = statusThemeIcon(agent.status);
     this.tooltip = `Agent: ${agent.agentId}\nClient: ${agent.client || "unknown"}\nStatus: ${agent.status}\nProject: ${agent.projectName}\nLast update: ${timeAgo}`;
     if (agent.cwd) {
-      this.command = { title: "Focus Window", command: "agentObserver.focusWindow", arguments: [agent.cwd] };
+      this.command = { title: "Focus Window", command: "agentObserver.focusWindow", arguments: [agent.agentId, agent.pid, agent.cwd] };
     }
   }
 }

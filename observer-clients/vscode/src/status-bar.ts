@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import { exec } from "child_process";
 
 interface AgentStatus {
   agentId: string;
@@ -7,6 +6,7 @@ interface AgentStatus {
   projectName: string;
   client?: string;
   cwd?: string;
+  pid?: number;
   timestamp: number;
 }
 
@@ -59,7 +59,6 @@ export class StatusBar {
   private connected = false;
   private expanded = false;
   private toggleDisposable: vscode.Disposable;
-  private focusDisposable: vscode.Disposable;
 
   constructor() {
     this.toggleItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, PRIORITY);
@@ -67,9 +66,6 @@ export class StatusBar {
     this.toggleDisposable = vscode.commands.registerCommand("agentObserver.toggle", () => {
       this.expanded = !this.expanded;
       this.update();
-    });
-    this.focusDisposable = vscode.commands.registerCommand("agentObserver.focusWindow", (cwd: string) => {
-      exec(`code "${cwd}"`);
     });
     this.update();
     this.toggleItem.show();
@@ -167,7 +163,7 @@ export class StatusBar {
           item.color = style.color;
 
           if (agent.cwd) {
-            item.command = { title: "Focus Window", command: "agentObserver.focusWindow", arguments: [agent.cwd] };
+            item.command = { title: "Focus Window", command: "agentObserver.focusWindow", arguments: [agent.agentId, agent.pid, agent.cwd] };
             item.tooltip = `${displayName}\n${agent.projectName} — ${agent.status}\n${relativeTime(agent.timestamp)}\nClick to focus window`;
           } else {
             item.tooltip = `${displayName}\n${agent.projectName} — ${agent.status}\n${relativeTime(agent.timestamp)}`;
@@ -187,6 +183,5 @@ export class StatusBar {
       item.dispose();
     }
     this.toggleDisposable.dispose();
-    this.focusDisposable.dispose();
   }
 }
