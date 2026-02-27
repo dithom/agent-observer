@@ -47,6 +47,8 @@ Jede Komponente wird unabhängig versioniert (SemVer):
 
 Versionen bumpen: `package.json` des jeweiligen Workspace. Beim Server zusätzlich `VERSION` in `src/app.ts`.
 
+Git-Tags pro Komponente: `vscode/v0.1.1`, `server/v0.1.0`, `plugin-claude-code/v0.1.0`.
+
 ## Konventionen
 
 - Builds laufen über esbuild (nicht tsc) — siehe `build.js` in jedem Workspace

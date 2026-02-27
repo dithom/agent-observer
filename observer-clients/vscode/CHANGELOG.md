@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-02-27
+
+- Fix image paths in README for VS Code Marketplace
+
 ## 0.1.0 — 2026-02-27
 
 - Initial release
