@@ -1,6 +1,6 @@
 node_modules/
 dist/
-*.lock
-!server.lock
+coverage/
 .vscode-test/
+.DS_Store
 *.vsix

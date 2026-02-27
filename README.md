@@ -1,13 +1,71 @@
 # Agent Observer
 
-Real-time monitoring of AI agents across projects and VS Code windows.
+Real-time monitoring of AI agents across projects and VS Code windows. See at a glance which agents are running, waiting for input, or have errors.
 
-## Prerequisites
+## Supported Observer Clients
 
-- **Node.js** >= 18
-- **VS Code `code` CLI** — required for "click to focus window" feature. Install via VS Code: `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH"
+| Client | Status |
+|---|---|
+| [VS Code Extension](observer-clients/vscode/) | Available |
 
-## Setup
+## Supported Agent Plugins
+
+| Plugin | Status |
+|---|---|
+| [Claude Code](agent-plugins/claude-code/) | Available |
+
+Missing your tool? Feel free to [create a PR](https://github.com/dithom/agent-observer/pulls) to add support for your agent or IDE.
+
+## Installation
+
+### 1. VS Code Extension
+
+Install **Agent Observer** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=dithom.agent-observer-vscode).
+
+The extension manages the observer server automatically — no separate setup needed.
+
+Requires VS Code `code` CLI for click-to-focus. Install via: `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH".
+
+### 2. Claude Code Plugin
+
+```bash
+claude plugin add dithom/agent-observer
+```
+
+That's it. The plugin reports agent status via Claude Code's hook system.
+
+## How It Works
+
+```
+Claude Code Plugin  →  POST /api/status  →  Server  →  WebSocket  →  VS Code Extension
+```
+
+- **Claude Code Plugin** reports status changes (running, waiting, error) via hooks
+- **Server** collects status from all agents (managed automatically by the VS Code extension)
+- **VS Code Extension** displays agent status in the sidebar and status bar
+
+## Features
+
+- Sidebar TreeView grouped by project with live status
+- Status Bar showing aggregated agent state
+- Click-to-focus: jump to the VS Code window where an agent is running
+- Automatic server lifecycle — starts on demand, stops when no clients remain
+
+## Screenshots
+
+### Sidebar
+
+![Sidebar TreeView with agents grouped by project](observer-clients/vscode/docs/sidebar.jpg)
+
+### Status Bar
+
+![Status Bar — all agents running (expanded)](observer-clients/vscode/docs/status-bar__working-expanded.jpg)
+
+![Status Bar — agent waiting for user (expanded)](observer-clients/vscode/docs/status-bar__waiting-expanded.jpg)
+
+![Status Bar — collapsed](observer-clients/vscode/docs/status-bar__working-collapsed.jpg)
+
+## Development
 
 ```bash
 npm install
@@ -15,26 +73,6 @@ npm run build -w server
 npm run build -w observer-clients/vscode
 ```
 
-### VS Code Extension
+## License
 
-Symlink for local development:
-
-```bash
-ln -s <repo>/observer-clients/vscode ~/.vscode/extensions/agent-observer-vscode
-```
-
-### Claude Code Plugin
-
-Add to your shell profile (e.g. `~/.zshrc`):
-
-```bash
-alias claude='claude --plugin-dir <repo>/agent-plugins/claude-code'
-```
-
-## Architecture
-
-```
-Agent Plugins (producers)  →  Server (HTTP/WS)  →  Observer Clients (consumers)
-    Claude Code hook             In-memory store       VS Code Extension
-    POST /api/status             WebSocket push        Status Bar + Sidebar
-```
+[MIT](LICENSE)

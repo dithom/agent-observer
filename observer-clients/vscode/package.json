@@ -1,14 +1,25 @@
 {
   "name": "agent-observer-vscode",
   "displayName": "Agent Observer",
-  "description": "Real-time monitoring of AI agents across projects",
-  "version": "1.0.0",
-  "publisher": "agent-observer",
+  "description": "Real-time monitoring of AI agents across projects and VS Code windows",
+  "version": "0.1.0",
+  "publisher": "dithom",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dithom/agent-observer"
+  },
+  "bugs": {
+    "url": "https://github.com/dithom/agent-observer/issues"
+  },
+  "homepage": "https://github.com/dithom/agent-observer#readme",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
+  "keywords": ["ai", "agent", "monitor", "claude", "status"],
   "categories": ["Other"],
-  "activationEvents": ["*"],
+  "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -27,6 +38,16 @@
           "name": "Agents"
         }
       ]
+    },
+    "configuration": {
+      "title": "Agent Observer",
+      "properties": {
+        "agentObserver.debugLogging": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable debug logging for agent plugin hooks. When enabled, hook invocations are logged to `~/.agent-observer/hook-debug.log`."
+        }
+      }
     }
   },
   "scripts": {

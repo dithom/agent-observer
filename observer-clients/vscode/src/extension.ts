@@ -1,8 +1,14 @@
 import * as vscode from "vscode";
+import { writeFileSync, unlinkSync, mkdirSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 import { startServer, waitForServer, stopServerIfLast, readLockFile, isServerRunning } from "./server-manager";
 import { WebSocketClient } from "./websocket-client";
 import { StatusBar } from "./status-bar";
 import { AgentTreeDataProvider } from "./tree-view";
+
+const DEBUG_FLAG_DIR = join(homedir(), ".agent-observer");
+const DEBUG_FLAG_FILE = join(DEBUG_FLAG_DIR, "debug");
 
 interface AgentStatus {
   agentId: string;
@@ -19,7 +25,60 @@ let treeProvider: AgentTreeDataProvider | undefined;
 let treeView: vscode.TreeView<any> | undefined;
 let previousAgents: Map<string, AgentStatus> = new Map();
 
+/**
+ * Match an agent's cwd to the closest VS Code workspace folder.
+ * Overrides projectName with the workspace folder name and cwd with
+ * the workspace folder path so that "focus window" opens the right root.
+ */
+function resolveWorkspace(agent: AgentStatus): AgentStatus {
+  if (!agent.cwd) {
+    return agent;
+  }
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    return agent;
+  }
+  // Find the workspace folder that contains the agent's cwd (longest prefix wins)
+  let best: vscode.WorkspaceFolder | undefined;
+  for (const folder of folders) {
+    const folderPath = folder.uri.fsPath;
+    if (agent.cwd === folderPath || agent.cwd.startsWith(folderPath + "/")) {
+      if (!best || folderPath.length > best.uri.fsPath.length) {
+        best = folder;
+      }
+    }
+  }
+  if (best) {
+    return { ...agent, projectName: best.name, cwd: best.uri.fsPath };
+  }
+  return agent;
+}
+
+function syncDebugFlag(): void {
+  const enabled = vscode.workspace.getConfiguration("agentObserver").get<boolean>("debugLogging", false);
+  try {
+    mkdirSync(DEBUG_FLAG_DIR, { recursive: true });
+    if (enabled) {
+      writeFileSync(DEBUG_FLAG_FILE, "");
+    } else {
+      unlinkSync(DEBUG_FLAG_FILE);
+    }
+  } catch {
+    // Ignore — file may not exist on delete, or dir creation may race
+  }
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  syncDebugFlag();
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("agentObserver.debugLogging")) {
+        syncDebugFlag();
+      }
+    }),
+  );
+
   statusBar = new StatusBar();
   treeProvider = new AgentTreeDataProvider();
 
@@ -74,6 +133,13 @@ async function ensureServer(): Promise<number | null> {
 function connectWebSocket(port: number): void {
   wsClient = new WebSocketClient(port);
 
+  // Let the WS client read the current port from the lock file on each
+  // reconnect attempt so it picks up server restarts automatically.
+  wsClient.setPortResolver(() => {
+    const lock = readLockFile();
+    return lock && isServerRunning(lock) ? lock.port : null;
+  });
+
   wsClient.on("connected", () => {
     statusBar?.setConnected(true);
   });
@@ -84,19 +150,20 @@ function connectWebSocket(port: number): void {
 
   wsClient.on("snapshot", (agents: AgentStatus[]) => {
     previousAgents.clear();
-    for (const a of agents) {
+    const resolved = agents.map(resolveWorkspace);
+    for (const a of resolved) {
       previousAgents.set(a.agentId, a);
     }
-    statusBar?.setAgents(agents);
-    treeProvider?.setAgents(agents);
+    statusBar?.setAgents(resolved);
+    treeProvider?.setAgents(resolved);
     updateBadge();
   });
 
   wsClient.on("status_update", (agent: AgentStatus) => {
-    notifyIfNeeded(agent);
-    previousAgents.set(agent.agentId, agent);
-    statusBar?.updateAgent(agent);
-    treeProvider?.updateAgent(agent);
+    const resolved = resolveWorkspace(agent);
+    previousAgents.set(resolved.agentId, resolved);
+    statusBar?.updateAgent(resolved);
+    treeProvider?.updateAgent(resolved);
     updateBadge();
   });
 
@@ -108,39 +175,6 @@ function connectWebSocket(port: number): void {
   });
 
   wsClient.connect();
-}
-
-function notifyIfNeeded(agent: AgentStatus): void {
-  const prev = previousAgents.get(agent.agentId);
-
-  // Only notify on status transitions, not on new agents
-  if (!prev || prev.status === agent.status) {
-    return;
-  }
-
-  const displayName = agent.client || agent.agentId.substring(0, 8);
-
-  if (agent.status === "waiting_for_user") {
-    const msg = vscode.window.showWarningMessage(
-      `${displayName} (${agent.projectName}) is waiting for input`,
-      "Focus Window"
-    );
-    msg.then((action) => {
-      if (action === "Focus Window" && agent.cwd) {
-        vscode.commands.executeCommand("agentObserver.focusWindow", agent.cwd);
-      }
-    });
-  } else if (agent.status === "error") {
-    const msg = vscode.window.showErrorMessage(
-      `${displayName} (${agent.projectName}) has an error`,
-      "Focus Window"
-    );
-    msg.then((action) => {
-      if (action === "Focus Window" && agent.cwd) {
-        vscode.commands.executeCommand("agentObserver.focusWindow", agent.cwd);
-      }
-    });
-  }
 }
 
 function updateBadge(): void {

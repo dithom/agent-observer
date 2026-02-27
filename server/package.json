@@ -1,11 +1,14 @@
 {
   "name": "@agent-observer/server",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "description": "In-memory HTTP + WebSocket server for real-time AI agent status monitoring",
+  "license": "MIT",
   "private": true,
   "main": "dist/server.js",
   "scripts": {
     "build": "node build.js",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "express": "^4.21.0",
@@ -15,6 +18,7 @@
     "@types/express": "^5.0.0",
     "@types/ws": "^8.5.0",
     "esbuild": "^0.24.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
   }
 }

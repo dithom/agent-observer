@@ -1,9 +1,12 @@
 {
   "name": "agent-observer",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "workspaces": [
     "server",
     "observer-clients/vscode"
-  ]
+  ],
+  "scripts": {
+    "test": "npm run test -w server"
+  }
 }
