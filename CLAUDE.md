@@ -47,7 +47,7 @@ Each component is versioned independently (SemVer):
 
 Version bump: `package.json` of the respective workspace. For the server, also update `VERSION` in `src/app.ts`.
 
-Git tags per component: `vscode/v0.1.1`, `server/v0.1.0`, `plugin-claude-code/v0.1.0`.
+Git tags mirror directory structure: `server/v0.1.0`, `observer-clients/vscode/v0.1.2`, `agent-plugins/claude-code/v0.1.1`.
 
 ## Git Flow & Release
 
