@@ -68,7 +68,7 @@ if [ "$STATUS" = "delete" ]; then
 else
   curl -s -X POST "${BASE_URL}/api/status" \
     -H "Content-Type: application/json" \
-    -d "{\"agentId\":\"${SESSION_ID}\",\"status\":\"${STATUS}\",\"projectName\":\"${PROJECT_NAME}\",\"client\":\"claude-code\",\"cwd\":\"${CWD}\",\"pid\":${AGENT_PID:-null}}" \
+    -d "{\"agentId\":\"${SESSION_ID}\",\"status\":\"${STATUS}\",\"projectName\":\"${PROJECT_NAME}\",\"client\":\"claude-code\",\"cwd\":\"${PROJECT_ROOT:-$CWD}\",\"pid\":${AGENT_PID:-null}}" \
     --max-time 2 > /dev/null 2>&1 || true
 fi
 
