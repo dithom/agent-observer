@@ -1,6 +1,4 @@
 node_modules/
 dist/
-*.lock
-!server.lock
 .vscode-test/
 *.vsix
