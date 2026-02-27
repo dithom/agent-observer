@@ -5,5 +5,8 @@
   "workspaces": [
     "server",
     "observer-clients/vscode"
-  ]
+  ],
+  "scripts": {
+    "test": "npm run test -w server"
+  }
 }
