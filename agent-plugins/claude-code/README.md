@@ -5,7 +5,8 @@ Reports Claude Code agent status to the [Agent Observer](https://github.com/dith
 ## Installation
 
 ```bash
-claude plugin add dithom/agent-observer
+claude plugin marketplace add dithom/agent-observer
+claude plugin install agent-observer@agent-observer
 ```
 
 ## What It Does
