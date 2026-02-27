@@ -317,6 +317,76 @@ describe("Waiting-for-User Debouncing", () => {
   });
 });
 
+describe("WebSocket — Client Messages (focus_request)", () => {
+  it("broadcasts focus_request enriched with pid and cwd from store", async () => {
+    // Post an agent with pid and cwd
+    await post("/api/status", {
+      ...validAgent,
+      pid: 12345,
+      cwd: "/home/user/project",
+    });
+
+    const { ws: ws1, messages: msgs1 } = await connectWs();
+    const { ws: ws2, messages: msgs2 } = await connectWs();
+    try {
+      // Client 1 sends a focus_request
+      ws1.send(JSON.stringify({ type: "focus_request", agentId: "agent-1" }));
+
+      // Both clients should receive the enriched focus_request
+      await waitForMessages(msgs1, 2); // snapshot + focus_request
+      await waitForMessages(msgs2, 2); // snapshot + focus_request
+
+      const focus1 = msgs1[1] as any;
+      expect(focus1.type).toBe("focus_request");
+      expect(focus1.data.agentId).toBe("agent-1");
+      expect(focus1.data.pid).toBe(12345);
+      expect(focus1.data.cwd).toBe("/home/user/project");
+
+      const focus2 = msgs2[1] as any;
+      expect(focus2.type).toBe("focus_request");
+      expect(focus2.data.agentId).toBe("agent-1");
+    } finally {
+      ws1.close();
+      ws2.close();
+    }
+  });
+
+  it("broadcasts focus_request without pid/cwd when agent not in store", async () => {
+    const { ws, messages } = await connectWs();
+    try {
+      ws.send(JSON.stringify({ type: "focus_request", agentId: "unknown-agent" }));
+
+      await waitForMessages(messages, 2); // snapshot + focus_request
+
+      const focus = messages[1] as any;
+      expect(focus.type).toBe("focus_request");
+      expect(focus.data.agentId).toBe("unknown-agent");
+      expect(focus.data.pid).toBeUndefined();
+      expect(focus.data.cwd).toBeUndefined();
+    } finally {
+      ws.close();
+    }
+  });
+
+  it("ignores invalid client messages", async () => {
+    const { ws, messages } = await connectWs();
+    try {
+      // Send garbage
+      ws.send("not json at all");
+      // Send valid JSON but unknown type
+      ws.send(JSON.stringify({ type: "unknown_type", foo: "bar" }));
+      // Send focus_request without agentId
+      ws.send(JSON.stringify({ type: "focus_request" }));
+
+      // Wait a bit — should not receive any extra messages beyond snapshot
+      await new Promise((r) => setTimeout(r, 200));
+      expect(messages).toHaveLength(1); // only snapshot
+    } finally {
+      ws.close();
+    }
+  });
+});
+
 describe("Stale Cleanup", () => {
   it("removes agent with dead PID on cleanup", async () => {
     const { ws, messages } = await connectWs();

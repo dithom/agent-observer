@@ -26,11 +26,12 @@ interface ServerLock {
 type WsMessage =
   | { type: "snapshot"; data: AgentStatus[] }
   | { type: "status_update"; data: AgentStatus }
-  | { type: "agent_removed"; data: { agentId: string } };
+  | { type: "agent_removed"; data: { agentId: string } }
+  | { type: "focus_request"; data: { agentId: string; pid?: number; cwd?: string } };
 
 // --- Config ---
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 const STALE_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours (fallback for agents without PID)
 const CLEANUP_INTERVAL_MS = 30 * 1000; // 30 seconds
 const WAITING_DEBOUNCE_MS = 3_000; // debounce waiting_for_user to absorb autonomous mode switches
@@ -190,6 +191,27 @@ export function createApp(options: CreateAppOptions = {}): AppInstance {
       data: Array.from(store.values()),
     };
     ws.send(JSON.stringify(snapshot));
+
+    ws.on("message", (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (msg?.type === "focus_request" && typeof msg.agentId === "string") {
+          const agent = store.get(msg.agentId);
+          const enriched: WsMessage = {
+            type: "focus_request",
+            data: {
+              agentId: msg.agentId,
+              ...(agent?.pid ? { pid: agent.pid } : {}),
+              ...(agent?.cwd ? { cwd: agent.cwd } : {}),
+            },
+          };
+          broadcast(enriched);
+        }
+        // Ignore unknown message types silently
+      } catch {
+        // Ignore malformed messages
+      }
+    });
   });
 
   function broadcast(message: WsMessage): void {

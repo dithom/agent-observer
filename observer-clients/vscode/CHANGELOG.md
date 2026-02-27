@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 — 2026-02-27
+
+- Focus agent terminal or Claude Code panel on click (not just the window)
+- Bidirectional WebSocket communication for cross-window focus requests
+- Terminal matching via process tree ancestry (agent PID → shell PID)
+- Claude Code GUI panel focus as fallback when no terminal PID is available
+
 ## 0.1.2 — 2026-02-27
 
 - Add plugin requirement notice to README
