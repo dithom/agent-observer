@@ -6,7 +6,7 @@ import { homedir } from "os";
 import { startServer, waitForServer, stopServerIfLast, readLockFile, isServerRunning } from "./server-manager";
 import { WebSocketClient } from "./websocket-client";
 import { StatusBar } from "./status-bar";
-import { AgentTreeDataProvider } from "./tree-view";
+import { AgentWebviewViewProvider } from "./webview-view";
 
 const DEBUG_FLAG_DIR = join(homedir(), ".agent-observer");
 const DEBUG_FLAG_FILE = join(DEBUG_FLAG_DIR, "debug");
@@ -18,14 +18,15 @@ interface AgentStatus {
   client?: string;
   cwd?: string;
   pid?: number;
+  label?: string;
   timestamp: number;
 }
 
 let wsClient: WebSocketClient | undefined;
 let statusBar: StatusBar | undefined;
-let treeProvider: AgentTreeDataProvider | undefined;
-let treeView: vscode.TreeView<any> | undefined;
+let webviewProvider: AgentWebviewViewProvider | undefined;
 let previousAgents: Map<string, AgentStatus> = new Map();
+let serverPort: number | null = null;
 
 /**
  * Match an agent's cwd to the closest VS Code workspace folder.
@@ -171,19 +172,47 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(focusDisposable);
 
   statusBar = new StatusBar();
-  treeProvider = new AgentTreeDataProvider();
+  webviewProvider = new AgentWebviewViewProvider(
+    (agentId, pid, cwd) => {
+      vscode.commands.executeCommand("agentObserver.focusWindow", agentId, pid, cwd);
+    },
+    async (agentId) => {
+      const agent = previousAgents.get(agentId);
+      const currentLabel = agent?.label || "";
+      const newLabel = await vscode.window.showInputBox({
+        prompt: "Enter a label for this agent",
+        value: currentLabel,
+        placeHolder: "e.g. Refactoring auth module",
+      });
+      if (newLabel === undefined) {
+        return; // cancelled
+      }
+      if (serverPort) {
+        try {
+          await fetch(`http://localhost:${serverPort}/api/status/${agentId}/label`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label: newLabel }),
+          });
+        } catch {
+          // Server unreachable — ignore
+        }
+      }
+    },
+  );
 
-  treeView = vscode.window.createTreeView("agentObserver.agents", {
-    treeDataProvider: treeProvider,
-  });
+  const webviewDisposable = vscode.window.registerWebviewViewProvider(
+    AgentWebviewViewProvider.viewType,
+    webviewProvider,
+  );
 
-  context.subscriptions.push(statusBar, treeView, { dispose: () => treeProvider?.dispose() });
+  context.subscriptions.push(statusBar, webviewDisposable);
 
   // Start server if needed
-  let port = await ensureServer();
+  serverPort = await ensureServer();
 
-  if (port) {
-    connectWebSocket(port);
+  if (serverPort) {
+    connectWebSocket(serverPort);
   }
 
   // Periodically check server health
@@ -191,12 +220,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const lock = readLockFile();
     if (!lock || !isServerRunning(lock)) {
       statusBar?.setConnected(false);
-      port = await ensureServer();
-      if (port) {
+      serverPort = await ensureServer();
+      if (serverPort) {
         if (wsClient) {
-          wsClient.updatePort(port);
+          wsClient.updatePort(serverPort);
         } else {
-          connectWebSocket(port);
+          connectWebSocket(serverPort);
         }
       }
     }
@@ -246,16 +275,14 @@ function connectWebSocket(port: number): void {
       previousAgents.set(a.agentId, a);
     }
     statusBar?.setAgents(resolved);
-    treeProvider?.setAgents(resolved);
-    updateBadge();
+    webviewProvider?.setAgents(resolved);
   });
 
   wsClient.on("status_update", (agent: AgentStatus) => {
     const resolved = resolveWorkspace(agent);
     previousAgents.set(resolved.agentId, resolved);
     statusBar?.updateAgent(resolved);
-    treeProvider?.updateAgent(resolved);
-    updateBadge();
+    webviewProvider?.updateAgent(resolved);
   });
 
   wsClient.on("focus_request", (data: { agentId: string; pid?: number; cwd?: string }) => {
@@ -265,27 +292,10 @@ function connectWebSocket(port: number): void {
   wsClient.on("agent_removed", (data: { agentId: string }) => {
     previousAgents.delete(data.agentId);
     statusBar?.removeAgent(data.agentId);
-    treeProvider?.removeAgent(data.agentId);
-    updateBadge();
+    webviewProvider?.removeAgent(data.agentId);
   });
 
   wsClient.connect();
-}
-
-function updateBadge(): void {
-  if (!treeView) {
-    return;
-  }
-  const agents = Array.from(previousAgents.values());
-  const attentionCount = agents.filter(
-    (a) => a.status === "waiting_for_user" || a.status === "error"
-  ).length;
-
-  if (attentionCount > 0) {
-    treeView.badge = { value: attentionCount, tooltip: `${attentionCount} agent(s) need attention` };
-  } else {
-    treeView.badge = undefined;
-  }
 }
 
 export function deactivate(): void {

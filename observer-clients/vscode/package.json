@@ -2,7 +2,7 @@
   "name": "agent-observer-vscode",
   "displayName": "Agent Observer",
   "description": "Real-time monitoring of AI agents across projects and VS Code windows",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "dithom",
   "license": "MIT",
   "repository": {
@@ -35,7 +35,8 @@
       "agent-observer": [
         {
           "id": "agentObserver.agents",
-          "name": "Agents"
+          "name": "Agents",
+          "type": "webview"
         }
       ]
     },

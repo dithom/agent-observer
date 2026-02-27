@@ -47,6 +47,14 @@ function del(path: string): Promise<Response> {
   return fetch(`${baseUrl}${path}`, { method: "DELETE" });
 }
 
+function patch(path: string, body: unknown): Promise<Response> {
+  return fetch(`${baseUrl}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 function connectWs(): Promise<{ ws: WebSocket; messages: unknown[] }> {
   return new Promise((resolve) => {
     const messages: unknown[] = [];
@@ -384,6 +392,80 @@ describe("WebSocket — Client Messages (focus_request)", () => {
     } finally {
       ws.close();
     }
+  });
+});
+
+describe("Label — PATCH /api/status/:agentId/label", () => {
+  it("sets label on existing agent", async () => {
+    await post("/api/status", validAgent);
+    const res = await patch("/api/status/agent-1/label", { label: "My Task" });
+    expect(res.status).toBe(200);
+
+    const agents = await (await get("/api/status")).json();
+    expect(agents[0].label).toBe("My Task");
+  });
+
+  it("returns 404 for unknown agent", async () => {
+    const res = await patch("/api/status/unknown/label", { label: "Test" });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 when label field is missing", async () => {
+    await post("/api/status", validAgent);
+    const res = await patch("/api/status/agent-1/label", {});
+    expect(res.status).toBe(400);
+  });
+
+  it("deletes label when empty string is sent", async () => {
+    await post("/api/status", validAgent);
+    await patch("/api/status/agent-1/label", { label: "My Task" });
+    await patch("/api/status/agent-1/label", { label: "" });
+
+    const agents = await (await get("/api/status")).json();
+    expect(agents[0].label).toBeUndefined();
+  });
+
+  it("broadcasts status_update after label change", async () => {
+    await post("/api/status", validAgent);
+    const { ws, messages } = await connectWs();
+    try {
+      await patch("/api/status/agent-1/label", { label: "Labeled" });
+      await waitForMessages(messages, 2); // snapshot + status_update
+      const update = messages[1] as any;
+      expect(update.type).toBe("status_update");
+      expect(update.data.label).toBe("Labeled");
+    } finally {
+      ws.close();
+    }
+  });
+
+  it("preserves label across POST updates without explicit label", async () => {
+    await post("/api/status", validAgent);
+    await patch("/api/status/agent-1/label", { label: "Persistent" });
+
+    // POST without label field — should preserve
+    await post("/api/status", { ...validAgent, status: "idle" });
+    const agents = await (await get("/api/status")).json();
+    expect(agents[0].label).toBe("Persistent");
+    expect(agents[0].status).toBe("idle");
+  });
+
+  it("POST with explicit label overwrites existing label", async () => {
+    await post("/api/status", validAgent);
+    await patch("/api/status/agent-1/label", { label: "Old" });
+
+    await post("/api/status", { ...validAgent, label: "New" });
+    const agents = await (await get("/api/status")).json();
+    expect(agents[0].label).toBe("New");
+  });
+
+  it("POST with explicit empty label clears existing label", async () => {
+    await post("/api/status", validAgent);
+    await patch("/api/status/agent-1/label", { label: "ToRemove" });
+
+    await post("/api/status", { ...validAgent, label: "" });
+    const agents = await (await get("/api/status")).json();
+    expect(agents[0].label).toBeUndefined();
   });
 });
 

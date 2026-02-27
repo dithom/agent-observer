@@ -14,6 +14,7 @@ export interface AgentStatus {
   client?: string;
   cwd?: string;
   pid?: number;
+  label?: string;
   timestamp: number;
 }
 
@@ -31,7 +32,7 @@ type WsMessage =
 
 // --- Config ---
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 const STALE_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours (fallback for agents without PID)
 const CLEANUP_INTERVAL_MS = 30 * 1000; // 30 seconds
 const WAITING_DEBOUNCE_MS = 3_000; // debounce waiting_for_user to absorb autonomous mode switches
@@ -106,6 +107,15 @@ export function createApp(options: CreateAppOptions = {}): AppInstance {
     const client = req.body.client;
     const cwd = req.body.cwd;
     const pid = req.body.pid;
+    const existing = store.get(agentId);
+
+    // Determine label: explicit POST value wins, otherwise preserve existing
+    let label: string | undefined;
+    if (req.body.label !== undefined) {
+      label = typeof req.body.label === "string" && req.body.label !== "" ? req.body.label : undefined;
+    } else {
+      label = existing?.label;
+    }
 
     const entry: AgentStatus = {
       agentId,
@@ -114,6 +124,7 @@ export function createApp(options: CreateAppOptions = {}): AppInstance {
       ...(client && typeof client === "string" ? { client } : {}),
       ...(cwd && typeof cwd === "string" ? { cwd } : {}),
       ...(pid && typeof pid === "number" ? { pid } : {}),
+      ...(label ? { label } : {}),
       timestamp: Date.now(),
     };
 
@@ -176,6 +187,30 @@ export function createApp(options: CreateAppOptions = {}): AppInstance {
       pendingWaiting.delete(agentId);
     }
     broadcast({ type: "agent_removed", data: { agentId } });
+    res.json({ ok: true });
+  });
+
+  app.patch("/api/status/:agentId/label", (req, res) => {
+    const { agentId } = req.params;
+    const agent = store.get(agentId);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const { label } = req.body;
+    if (typeof label !== "string") {
+      res.status(400).json({ error: "Missing or invalid field: label" });
+      return;
+    }
+
+    if (label === "") {
+      delete agent.label;
+    } else {
+      agent.label = label;
+    }
+
+    broadcast({ type: "status_update", data: agent });
     res.json({ ok: true });
   });
 
