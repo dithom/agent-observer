@@ -31,7 +31,7 @@ type WsMessage =
 
 // --- Config ---
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 const STALE_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours (fallback for agents without PID)
 const CLEANUP_INTERVAL_MS = 30 * 1000; // 30 seconds
 const WAITING_DEBOUNCE_MS = 3_000; // debounce waiting_for_user to absorb autonomous mode switches
