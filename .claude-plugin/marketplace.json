@@ -8,7 +8,7 @@
       "name": "agent-observer",
       "source": "./agent-plugins/claude-code",
       "description": "Reports Claude Code agent status to the Agent Observer server for real-time monitoring.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
