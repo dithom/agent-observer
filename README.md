@@ -35,6 +35,20 @@ Claude Code Plugin  →  POST /api/status  →  Server  →  WebSocket  →  VS 
 - Click-to-focus: jump to the VS Code window where an agent is running
 - Automatic server lifecycle — starts on demand, stops when no clients remain
 
+## Screenshots
+
+### Sidebar
+
+![Sidebar TreeView with agents grouped by project](observer-clients/vscode/docs/sidebar.jpg)
+
+### Status Bar
+
+![Status Bar — all agents running (expanded)](observer-clients/vscode/docs/status-bar__working-expanded.jpg)
+
+![Status Bar — agent waiting for user (expanded)](observer-clients/vscode/docs/status-bar__waiting-expanded.jpg)
+
+![Status Bar — collapsed](observer-clients/vscode/docs/status-bar__working-collapsed.jpg)
+
 ## Requirements
 
 - VS Code `code` CLI — needed for click-to-focus. Install via: `Cmd+Shift+P` → "Shell Command: Install 'code' command in PATH"
