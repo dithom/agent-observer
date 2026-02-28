@@ -40,9 +40,42 @@
         }
       ]
     },
+    "commands": [
+      {
+        "command": "agentObserver.enableGroupByProject",
+        "title": "✓ Group by Project"
+      },
+      {
+        "command": "agentObserver.disableGroupByProject",
+        "title": "Group by Project"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentObserver.enableGroupByProject",
+          "when": "view == agentObserver.agents && config.agentObserver.groupByProject",
+          "group": "1_display"
+        },
+        {
+          "command": "agentObserver.disableGroupByProject",
+          "when": "view == agentObserver.agents && !config.agentObserver.groupByProject",
+          "group": "1_display"
+        }
+      ],
+      "commandPalette": [
+        { "command": "agentObserver.enableGroupByProject", "when": "false" },
+        { "command": "agentObserver.disableGroupByProject", "when": "false" }
+      ]
+    },
     "configuration": {
       "title": "Agent Observer",
       "properties": {
+        "agentObserver.groupByProject": {
+          "type": "boolean",
+          "default": false,
+          "description": "Group agents by project. When disabled, agents are shown as a flat list with the project name on each card."
+        },
         "agentObserver.debugLogging": {
           "type": "boolean",
           "default": false,

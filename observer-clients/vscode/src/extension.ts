@@ -158,6 +158,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
+  // "✓ Group by Project" shown when enabled → clicking disables
+  context.subscriptions.push(
+    vscode.commands.registerCommand("agentObserver.enableGroupByProject", () => {
+      vscode.workspace.getConfiguration("agentObserver").update("groupByProject", false, true);
+    }),
+  );
+  // "Group by Project" shown when disabled → clicking enables
+  context.subscriptions.push(
+    vscode.commands.registerCommand("agentObserver.disableGroupByProject", () => {
+      vscode.workspace.getConfiguration("agentObserver").update("groupByProject", true, true);
+    }),
+  );
+
   const focusDisposable = vscode.commands.registerCommand(
     "agentObserver.focusWindow",
     (agentId: string, _pid?: number, cwd?: string) => {

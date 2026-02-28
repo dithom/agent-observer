@@ -22,6 +22,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private onFocusAgent: (agentId: string, pid?: number, cwd?: string) => void;
   private onRenameAgent: (agentId: string) => void;
+  private disposables: vscode.Disposable[] = [];
 
   constructor(
     onFocusAgent: (agentId: string, pid?: number, cwd?: string) => void,
@@ -29,6 +30,14 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
   ) {
     this.onFocusAgent = onFocusAgent;
     this.onRenameAgent = onRenameAgent;
+
+    this.disposables.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("agentObserver.groupByProject")) {
+          this.postSettingsUpdate();
+        }
+      }),
+    );
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
@@ -50,6 +59,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     });
 
     this.updateBadge();
+    this.postSettingsUpdate();
 
     // Send current state to the freshly (re-)opened webview
     if (this.agents.size > 0) {
@@ -76,6 +86,20 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     this.agents.delete(agentId);
     this.postAgentsUpdate();
     this.updateBadge();
+  }
+
+  dispose(): void {
+    for (const d of this.disposables) {
+      d.dispose();
+    }
+  }
+
+  private postSettingsUpdate(): void {
+    if (!this.webviewView) {
+      return;
+    }
+    const groupByProject = vscode.workspace.getConfiguration("agentObserver").get<boolean>("groupByProject", true);
+    this.webviewView.webview.postMessage({ type: "updateSettings", groupByProject });
   }
 
   private postAgentsUpdate(): void {
@@ -207,6 +231,12 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
   .status-dot.waiting_for_user { background: var(--status-waiting); }
   .status-dot.error { background: var(--status-error); }
   .status-dot.idle { background: var(--status-idle); }
+  .card-project {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 2px;
+    display: none;
+  }
   .card-time {
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
@@ -222,6 +252,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
   const root = document.getElementById('root');
   let agents = [];
   let collapsed = {};
+  let groupByProject = false;
 
   const STATUS_LABELS = {
     running: 'Running',
@@ -247,6 +278,14 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    if (groupByProject) {
+      renderGrouped();
+    } else {
+      renderFlat();
+    }
+  }
+
+  function renderGrouped() {
     // Group by project
     const groups = {};
     for (const a of agents) {
@@ -265,6 +304,11 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       if (!groups[name]) el.remove();
     }
 
+    // Remove any flat-mode cards
+    for (const card of root.querySelectorAll(':scope > .card')) {
+      card.remove();
+    }
+
     let prevEl = null;
     for (const project of projectNames) {
       let groupEl = existingGroups.get(project);
@@ -279,6 +323,51 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       }
       updateGroupCards(groupEl, groups[project]);
       prevEl = groupEl;
+    }
+  }
+
+  function renderFlat() {
+    // Remove any grouped elements
+    for (const el of root.querySelectorAll('.project-group')) {
+      el.remove();
+    }
+
+    const sorted = [...agents].sort((a, b) =>
+      (a.projectName + displayName(a)).localeCompare(b.projectName + displayName(b))
+    );
+
+    const existingCards = new Map();
+    for (const card of root.querySelectorAll(':scope > .card')) {
+      existingCards.set(card.dataset.agentId, card);
+    }
+
+    // Remove cards for agents that no longer exist
+    const agentIds = new Set(sorted.map(a => a.agentId));
+    for (const [id, card] of existingCards) {
+      if (!agentIds.has(id)) card.remove();
+    }
+
+    let prevEl = null;
+    for (const agent of sorted) {
+      let card = existingCards.get(agent.agentId);
+      if (!card) {
+        card = createCard(agent);
+        if (prevEl) {
+          prevEl.after(card);
+        } else {
+          if (root.firstChild) {
+            root.insertBefore(card, root.firstChild);
+          } else {
+            root.appendChild(card);
+          }
+        }
+      } else {
+        updateCard(card, agent);
+      }
+      // Show project line in flat mode
+      const projEl = card.querySelector('.card-project');
+      if (projEl) projEl.style.display = 'block';
+      prevEl = card;
     }
   }
 
@@ -343,6 +432,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
         '<span class="card-name">' + escapeHtml(displayName(agent)) + '</span>' +
         '<button class="edit-btn" title="Rename">&#9998;</button>' +
       '</div>' +
+      '<div class="card-project">' + escapeHtml(agent.projectName) + '</div>' +
       '<div class="card-status">' +
         '<span class="status-dot ' + agent.status + '"></span>' +
         '<span class="status-text">' + STATUS_LABELS[agent.status] + '</span>' +
@@ -367,6 +457,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     card.dataset.cwd = agent.cwd || '';
     card.dataset.timestamp = agent.timestamp;
     card.querySelector('.card-name').textContent = displayName(agent);
+    card.querySelector('.card-project').textContent = agent.projectName;
     card.querySelector('.status-dot').className = 'status-dot ' + agent.status;
     card.querySelector('.status-text').textContent = STATUS_LABELS[agent.status];
     card.querySelector('.card-time').textContent = relativeTime(agent.timestamp);
@@ -396,6 +487,10 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     const msg = event.data;
     if (msg.type === 'updateAgents') {
       agents = msg.agents;
+      render();
+    } else if (msg.type === 'updateSettings') {
+      groupByProject = msg.groupByProject;
+      root.innerHTML = '';
       render();
     }
   });
