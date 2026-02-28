@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-02-28
+
+- Add "Group by Project" toggle in view menu
+- Show relative time inline with status for non-running agents
+- Add "Move Inactive to Top" toggle in view menu
+- Add card animations (FLIP sort transitions, enter/exit, status text, color transitions)
+- Add unit tests for sort logic with vitest setup
+
 ## 0.3.0 — 2026-02-27
 
 - Replace TreeView with WebviewView cards (colored border = status, grouped by project, collapsible)
