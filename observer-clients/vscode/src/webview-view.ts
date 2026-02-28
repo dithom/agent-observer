@@ -181,7 +181,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     padding: 8px 10px;
     margin: 4px 0;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.1s, transform 0.25s ease, border-left-color 0.3s ease;
   }
   .card:hover { background: var(--vscode-list-hoverBackground); }
   .card.status-running { border-left-color: var(--status-running); }
@@ -228,6 +228,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
+    transition: background 0.3s ease;
   }
   .status-dot.running { background: var(--status-running); }
   .status-dot.waiting_for_user { background: var(--status-waiting); }
@@ -239,8 +240,51 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     margin-top: 2px;
     display: none;
   }
+  .status-text-wrap {
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+  }
+  .status-text {
+    display: block;
+  }
+  @keyframes statusTextIn {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes statusTextOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-100%); }
+  }
+  .status-text-in {
+    animation: statusTextIn 0.25s ease both;
+  }
+  .status-text-out {
+    position: absolute;
+    top: 0;
+    left: 0;
+    animation: statusTextOut 0.25s ease both;
+  }
   .card-time {
     display: none;
+  }
+  @keyframes cardEnter {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .card-enter {
+    animation: cardEnter 0.25s ease both;
+  }
+  .card-exit {
+    transition: opacity 0.2s ease, transform 0.2s ease, margin 0.2s ease, padding 0.2s ease, max-height 0.2s ease;
+    opacity: 0;
+    transform: translateY(-8px);
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    overflow: hidden;
+    pointer-events: none;
   }
 </style>
 </head>
@@ -279,6 +323,9 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    const empty = root.querySelector('.empty');
+    if (empty) empty.remove();
+
     if (groupByProject) {
       renderGrouped();
     } else {
@@ -294,6 +341,41 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       if (aInactive !== bInactive) return aInactive - bInactive;
       return a.timestamp - b.timestamp;
     });
+  }
+
+  // FLIP animation: capture positions before DOM change, animate after
+  function capturePositions(container) {
+    const positions = new Map();
+    for (const card of container.querySelectorAll('.card:not(.card-exit)')) {
+      positions.set(card.dataset.agentId, card.getBoundingClientRect().top);
+    }
+    return positions;
+  }
+
+  function animateExit(card) {
+    card.style.maxHeight = card.offsetHeight + 'px';
+    requestAnimationFrame(() => {
+      card.classList.add('card-exit');
+    });
+    card.addEventListener('transitionend', () => card.remove(), { once: true });
+    // Fallback: remove after 300ms if transitionend doesn't fire
+    setTimeout(() => { if (card.parentNode) card.remove(); }, 300);
+  }
+
+  function animateFlip(container, oldPositions) {
+    for (const card of container.querySelectorAll('.card')) {
+      const oldTop = oldPositions.get(card.dataset.agentId);
+      if (oldTop === undefined) continue;
+      const newTop = card.getBoundingClientRect().top;
+      const delta = oldTop - newTop;
+      if (delta === 0) continue;
+      card.style.transition = 'none';
+      card.style.transform = 'translateY(' + delta + 'px)';
+      requestAnimationFrame(() => {
+        card.style.transition = '';
+        card.style.transform = '';
+      });
+    }
   }
 
   function renderGrouped() {
@@ -352,34 +434,31 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       existingCards.set(card.dataset.agentId, card);
     }
 
-    // Remove cards for agents that no longer exist
+    // Animate out cards for agents that no longer exist
     const agentIds = new Set(sorted.map(a => a.agentId));
     for (const [id, card] of existingCards) {
-      if (!agentIds.has(id)) card.remove();
+      if (!agentIds.has(id)) {
+        existingCards.delete(id);
+        animateExit(card);
+      }
     }
 
-    let prevEl = null;
+    const oldPositions = capturePositions(root);
+
     for (const agent of sorted) {
       let card = existingCards.get(agent.agentId);
       if (!card) {
         card = createCard(agent);
-        if (prevEl) {
-          prevEl.after(card);
-        } else {
-          if (root.firstChild) {
-            root.insertBefore(card, root.firstChild);
-          } else {
-            root.appendChild(card);
-          }
-        }
       } else {
         updateCard(card, agent);
       }
       // Show project line in flat mode
       const projEl = card.querySelector('.card-project');
       if (projEl) projEl.style.display = 'block';
-      prevEl = card;
+      root.appendChild(card);
     }
+
+    animateFlip(root, oldPositions);
   }
 
   function createGroupEl(project) {
@@ -414,11 +493,15 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       existingCards.set(card.dataset.agentId, card);
     }
 
-    // Remove cards for agents that no longer exist
+    // Animate out cards for agents that no longer exist
     for (const [id, card] of existingCards) {
-      if (!groupAgents.find(a => a.agentId === id)) card.remove();
+      if (!groupAgents.find(a => a.agentId === id)) {
+        existingCards.delete(id);
+        animateExit(card);
+      }
     }
 
+    const oldPositions = capturePositions(children);
     const sorted = sortAgents(groupAgents);
 
     for (const agent of sorted) {
@@ -430,12 +513,16 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       }
       children.appendChild(card);
     }
+
+    animateFlip(children, oldPositions);
   }
 
   function createCard(agent) {
     const card = document.createElement('div');
-    card.className = 'card status-' + agent.status;
+    card.className = 'card status-' + agent.status + ' card-enter';
+    card.addEventListener('animationend', () => card.classList.remove('card-enter'), { once: true });
     card.dataset.agentId = agent.agentId;
+    card.dataset.status = agent.status;
     card.dataset.pid = agent.pid || '';
     card.dataset.cwd = agent.cwd || '';
     card.dataset.timestamp = agent.timestamp;
@@ -448,7 +535,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       '<div class="card-project">' + escapeHtml(agent.projectName) + '</div>' +
       '<div class="card-status">' +
         '<span class="status-dot ' + agent.status + '"></span>' +
-        '<span class="status-text">' + statusText(agent) + '</span>' +
+        '<span class="status-text-wrap"><span class="status-text">' + statusText(agent) + '</span></span>' +
       '</div>';
 
     card.addEventListener('click', (e) => {
@@ -464,14 +551,34 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
   }
 
   function updateCard(card, agent) {
+    const oldStatus = card.dataset.status || '';
     card.className = 'card status-' + agent.status;
+    card.dataset.status = agent.status;
     card.dataset.pid = agent.pid || '';
     card.dataset.cwd = agent.cwd || '';
     card.dataset.timestamp = agent.timestamp;
     card.querySelector('.card-name').textContent = displayName(agent);
     card.querySelector('.card-project').textContent = agent.projectName;
     card.querySelector('.status-dot').className = 'status-dot ' + agent.status;
-    card.querySelector('.status-text').textContent = statusText(agent);
+
+    const newText = statusText(agent);
+    const wrap = card.querySelector('.status-text-wrap');
+    const textEl = card.querySelector('.status-text');
+
+    if (oldStatus && oldStatus !== agent.status && wrap) {
+      // Animate: old text slides out up, new text slides in from below
+      const oldEl = document.createElement('span');
+      oldEl.className = 'status-text status-text-out';
+      oldEl.textContent = textEl.textContent;
+      wrap.appendChild(oldEl);
+      oldEl.addEventListener('animationend', () => oldEl.remove(), { once: true });
+
+      textEl.textContent = newText;
+      textEl.classList.add('status-text-in');
+      textEl.addEventListener('animationend', () => textEl.classList.remove('status-text-in'), { once: true });
+    } else {
+      textEl.textContent = newText;
+    }
   }
 
   function statusText(agent) {
