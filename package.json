@@ -7,6 +7,6 @@
     "observer-clients/vscode"
   ],
   "scripts": {
-    "test": "npm run test -w server"
+    "test": "npm run test -w server && npm run test -w observer-clients/vscode"
   }
 }
