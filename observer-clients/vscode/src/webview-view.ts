@@ -238,9 +238,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     display: none;
   }
   .card-time {
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    margin-top: 2px;
+    display: none;
   }
 </style>
 </head>
@@ -435,9 +433,8 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       '<div class="card-project">' + escapeHtml(agent.projectName) + '</div>' +
       '<div class="card-status">' +
         '<span class="status-dot ' + agent.status + '"></span>' +
-        '<span class="status-text">' + STATUS_LABELS[agent.status] + '</span>' +
-      '</div>' +
-      '<div class="card-time">' + relativeTime(agent.timestamp) + '</div>';
+        '<span class="status-text">' + statusText(agent) + '</span>' +
+      '</div>';
 
     card.addEventListener('click', (e) => {
       if (e.target.closest('.edit-btn')) return;
@@ -459,8 +456,12 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     card.querySelector('.card-name').textContent = displayName(agent);
     card.querySelector('.card-project').textContent = agent.projectName;
     card.querySelector('.status-dot').className = 'status-dot ' + agent.status;
-    card.querySelector('.status-text').textContent = STATUS_LABELS[agent.status];
-    card.querySelector('.card-time').textContent = relativeTime(agent.timestamp);
+    card.querySelector('.status-text').textContent = statusText(agent);
+  }
+
+  function statusText(agent) {
+    if (agent.status === 'running') return STATUS_LABELS[agent.status];
+    return STATUS_LABELS[agent.status] + ', ' + relativeTime(agent.timestamp);
   }
 
   function displayName(agent) {
@@ -475,11 +476,13 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
 
   // Update timestamps every 10 seconds
   setInterval(() => {
-    for (const timeEl of root.querySelectorAll('.card-time')) {
-      const card = timeEl.closest('.card');
-      if (card && card.dataset.timestamp) {
-        timeEl.textContent = relativeTime(Number(card.dataset.timestamp));
-      }
+    for (const card of root.querySelectorAll('.card')) {
+      if (!card.dataset.timestamp) continue;
+      const isRunning = card.classList.contains('status-running');
+      const textEl = card.querySelector('.status-text');
+      if (!textEl) continue;
+      const label = isRunning ? 'Running' : textEl.textContent.split(',')[0];
+      textEl.textContent = isRunning ? label : label + ', ' + relativeTime(Number(card.dataset.timestamp));
     }
   }, 10000);
 
