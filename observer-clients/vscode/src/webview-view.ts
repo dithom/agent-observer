@@ -33,7 +33,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
 
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration("agentObserver.groupByProject")) {
+        if (e.affectsConfiguration("agentObserver.groupByProject") || e.affectsConfiguration("agentObserver.moveInactiveToTop")) {
           this.postSettingsUpdate();
         }
       }),
@@ -98,8 +98,10 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     if (!this.webviewView) {
       return;
     }
-    const groupByProject = vscode.workspace.getConfiguration("agentObserver").get<boolean>("groupByProject", true);
-    this.webviewView.webview.postMessage({ type: "updateSettings", groupByProject });
+    const config = vscode.workspace.getConfiguration("agentObserver");
+    const groupByProject = config.get<boolean>("groupByProject", true);
+    const moveInactiveToTop = config.get<boolean>("moveInactiveToTop", false);
+    this.webviewView.webview.postMessage({ type: "updateSettings", groupByProject, moveInactiveToTop });
   }
 
   private postAgentsUpdate(): void {
@@ -251,6 +253,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
   let agents = [];
   let collapsed = {};
   let groupByProject = false;
+  let moveInactiveToTop = false;
 
   const STATUS_LABELS = {
     running: 'Running',
@@ -281,6 +284,16 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
     } else {
       renderFlat();
     }
+  }
+
+  function sortAgents(list) {
+    if (!moveInactiveToTop) return list;
+    return [...list].sort((a, b) => {
+      const aInactive = a.status !== 'running' ? 0 : 1;
+      const bInactive = b.status !== 'running' ? 0 : 1;
+      if (aInactive !== bInactive) return aInactive - bInactive;
+      return a.timestamp - b.timestamp;
+    });
   }
 
   function renderGrouped() {
@@ -330,9 +343,9 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       el.remove();
     }
 
-    const sorted = [...agents].sort((a, b) =>
+    const sorted = sortAgents([...agents].sort((a, b) =>
       (a.projectName + displayName(a)).localeCompare(b.projectName + displayName(b))
-    );
+    ));
 
     const existingCards = new Map();
     for (const card of root.querySelectorAll(':scope > .card')) {
@@ -406,14 +419,16 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       if (!groupAgents.find(a => a.agentId === id)) card.remove();
     }
 
-    for (const agent of groupAgents) {
+    const sorted = sortAgents(groupAgents);
+
+    for (const agent of sorted) {
       let card = existingCards.get(agent.agentId);
       if (!card) {
         card = createCard(agent);
-        children.appendChild(card);
       } else {
         updateCard(card, agent);
       }
+      children.appendChild(card);
     }
   }
 
@@ -493,6 +508,7 @@ export class AgentWebviewViewProvider implements vscode.WebviewViewProvider {
       render();
     } else if (msg.type === 'updateSettings') {
       groupByProject = msg.groupByProject;
+      moveInactiveToTop = msg.moveInactiveToTop;
       root.innerHTML = '';
       render();
     }

@@ -171,6 +171,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
+  // "✓ Move Inactive to Top" shown when enabled → clicking disables
+  context.subscriptions.push(
+    vscode.commands.registerCommand("agentObserver.enableMoveInactiveToTop", () => {
+      vscode.workspace.getConfiguration("agentObserver").update("moveInactiveToTop", false, true);
+    }),
+  );
+  // "Move Inactive to Top" shown when disabled → clicking enables
+  context.subscriptions.push(
+    vscode.commands.registerCommand("agentObserver.disableMoveInactiveToTop", () => {
+      vscode.workspace.getConfiguration("agentObserver").update("moveInactiveToTop", true, true);
+    }),
+  );
+
   const focusDisposable = vscode.commands.registerCommand(
     "agentObserver.focusWindow",
     (agentId: string, _pid?: number, cwd?: string) => {

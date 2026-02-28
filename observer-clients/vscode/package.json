@@ -48,6 +48,14 @@
       {
         "command": "agentObserver.disableGroupByProject",
         "title": "Group by Project"
+      },
+      {
+        "command": "agentObserver.enableMoveInactiveToTop",
+        "title": "✓ Move Inactive to Top"
+      },
+      {
+        "command": "agentObserver.disableMoveInactiveToTop",
+        "title": "Move Inactive to Top"
       }
     ],
     "menus": {
@@ -61,11 +69,23 @@
           "command": "agentObserver.disableGroupByProject",
           "when": "view == agentObserver.agents && !config.agentObserver.groupByProject",
           "group": "1_display"
+        },
+        {
+          "command": "agentObserver.enableMoveInactiveToTop",
+          "when": "view == agentObserver.agents && config.agentObserver.moveInactiveToTop",
+          "group": "1_display"
+        },
+        {
+          "command": "agentObserver.disableMoveInactiveToTop",
+          "when": "view == agentObserver.agents && !config.agentObserver.moveInactiveToTop",
+          "group": "1_display"
         }
       ],
       "commandPalette": [
         { "command": "agentObserver.enableGroupByProject", "when": "false" },
-        { "command": "agentObserver.disableGroupByProject", "when": "false" }
+        { "command": "agentObserver.disableGroupByProject", "when": "false" },
+        { "command": "agentObserver.enableMoveInactiveToTop", "when": "false" },
+        { "command": "agentObserver.disableMoveInactiveToTop", "when": "false" }
       ]
     },
     "configuration": {
@@ -75,6 +95,11 @@
           "type": "boolean",
           "default": false,
           "description": "Group agents by project. When disabled, agents are shown as a flat list with the project name on each card."
+        },
+        "agentObserver.moveInactiveToTop": {
+          "type": "boolean",
+          "default": false,
+          "description": "Move inactive agents to the top of the list, sorted by most recent status change."
         },
         "agentObserver.debugLogging": {
           "type": "boolean",
